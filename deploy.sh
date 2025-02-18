@@ -97,7 +97,7 @@ check_for_updates() {
 
         cd "$DEPLOY_DIR/$PROJECT_DIR" || exit
 
-        if sudo git rev-parse --is-inside-work-tree &>/dev/null; then
+        if git config --get remote.origin.url &>/dev/null; then
             git fetch origin
             git reset --hard "origin/$BRANCH_NAME"
         else
