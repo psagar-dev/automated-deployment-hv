@@ -1,1 +1,1 @@
-# automated-deployment
+# automated-deployments
