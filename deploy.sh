@@ -73,6 +73,12 @@ setup_environment() {
     mkdir -p $DEPLOY_DIR/$PROJECT_DIR
 }
 
+setup_permission() {
+    echo "Setting permissions..."
+    sudo chown -R www-data:www-data "$DEPLOY_DIR/$PROJECT_DIR"
+    sudo chmod -R 755 "$DEPLOY_DIR/$PROJECT_DIR"
+}
+
 check_for_updates() {
     local latest_commit
     local last_commit
@@ -99,11 +105,19 @@ check_for_updates() {
     fi
 }
 
+setup_package() {
+    if ! command -v jq &>/dev/null; then
+        sudo apt install -y jq
+    fi
+}
+
 check_nginx_installed
 check_nginx
+setup_package
 setup_environment
+setup_permission
 check_for_updates
+
 echo "Restarting Nginx to deploy changes..."
 systemctl restart nginx
 echo "✅ Deployment complete."
-#sudo chown -R $USER:$USER .
