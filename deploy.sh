@@ -20,7 +20,7 @@ check_nginx_installed() {
         echo "✅ Nginx is installed."
     else
         echo "Nginx is not installed. Installing..."
-        sudo apt update && sudo apt install -y nginx
+        sudo apt-get update && sudo apt-get install -y nginx
     fi
 }
 
@@ -81,7 +81,7 @@ setup_permission() {
 
 setup_package() {
     if ! command -v jq &>/dev/null; then
-        sudo apt install -y jq
+        sudo apt-get install -y jq
     fi
 }
 
