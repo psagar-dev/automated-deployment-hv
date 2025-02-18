@@ -75,8 +75,14 @@ setup_environment() {
 
 setup_permission() {
     echo "Setting permissions..."
-    sudo chown -R www-data:www-data "$DEPLOY_DIR/$PROJECT_DIR"
+    sudo chown -R $USER:$USER "$DEPLOY_DIR/$PROJECT_DIR"
     sudo chmod -R 755 "$DEPLOY_DIR/$PROJECT_DIR"
+}
+
+setup_package() {
+    if ! command -v jq &>/dev/null; then
+        sudo apt install -y jq
+    fi
 }
 
 check_for_updates() {
@@ -102,12 +108,6 @@ check_for_updates() {
         write_last_commit "$latest_commit"
     else
         echo "✅ No new changes found."
-    fi
-}
-
-setup_package() {
-    if ! command -v jq &>/dev/null; then
-        sudo apt install -y jq
     fi
 }
 
