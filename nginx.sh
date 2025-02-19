@@ -4,7 +4,7 @@ NGINX_CONF="/etc/nginx/sites-available/automated-deployment-hv"
 WEB_ROOT="/var/www/html/automated-deployment-hv"
 
 #Update system packages
-sudo apt update -y
+sudo apt-get update -y
 
 echo "Creating Nginx configuration file..."
 sudo tee "$NGINX_CONF" > /dev/null <<EOF
@@ -27,8 +27,11 @@ EOF
 echo "Enabling Nginx configuration..."
 sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/
 
-# Test and reload Nginx
-echo "Testing Nginx configuration..."
-sudo nginx -t && sudo systemctl restart nginx
-
-echo "Nginx setup completed successfully."
+# Test and reload Nginx configuration
+if sudo nginx -t; then
+    sudo nginx -s reload
+    echo "Nginx setup completed successfully."
+else
+    echo "Nginx configuration test failed!" >&2
+    exit 1
+fi

@@ -6,8 +6,10 @@ GITHUB_URL="https://github.com/$GIT_REPO.git"
 GITHUB_API_URL="https://api.github.com/repos/$GIT_REPO/commits/$BRANCH_NAME"
 DEPLOY_DIR="/var/www/html"
 PROJECT_DIR="automated-deployment-hv"
+FULL_DEPLOY_PATH="$DEPLOY_DIR/$PROJECT_DIR"
 LAST_COMMIT_DIR="/home/ci-cd"
 LAST_COMMIT_FILE="$LAST_COMMIT_DIR/last_commit.txt"
+REQUIRED_PACKAGES=("nginx" "curl" "jq" "git")
 # set -x
 
 if [[ ${UID} -ne 0 ]]; then
@@ -15,16 +17,18 @@ if [[ ${UID} -ne 0 ]]; then
     exit 1
 fi
 
-check_nginx_installed() {
-    if command -v nginx &>/dev/null; then
-        echo "✅ Nginx is installed."
-    else
-        echo "Nginx is not installed. Installing..."
-        sudo apt-get update && sudo apt-get install -y nginx
-    fi
+install_packages() {
+    for package in "${REQUIRED_PACKAGES[@]}"; do
+        if ! command -v "$package" &>/dev/null; then
+            echo "$package is not installed. Installing..."
+            sudo apt-get update && sudo apt-get install -y "$package"
+        else
+            echo "✅ $package is already installed."
+        fi
+    done
 }
 
-check_nginx() {
+ensure_nginx_running() {
     if systemctl status nginx &>/dev/null; then
         echo "✅ Nginx is running (systemctl)."
     elif service nginx status &>/dev/null; then
@@ -45,10 +49,12 @@ check_nginx() {
 get_latest_commit() {
     local latest_commit
     latest_commit=$(curl -s $GITHUB_API_URL | jq -r '.sha')
+
     if [[ "$latest_commit" == "null" || -z "$latest_commit" ]]; then
         echo "❌ Failed to fetch latest commit from GitHub"
         exit 1
     fi
+
     echo "$latest_commit"
 }
 
@@ -68,24 +74,18 @@ setup_environment() {
         touch "$LAST_COMMIT_FILE"
     }
 
-    [[ ! -d $DEPLOY_DIR ]] && echo "✘ Directory does not exist: $DEPLOY_DIR" && exit 1
+    [[ ! -d $DEPLOY_DIR ]] && echo "✘ Deployment Directory does not exist: $DEPLOY_DIR" && exit 1
 
-    mkdir -p $DEPLOY_DIR/$PROJECT_DIR
+    mkdir -p $FULL_DEPLOY_PATH
 }
 
 setup_permission() {
     echo "Setting permissions..."
-    sudo chown -R $USER:$USER "$DEPLOY_DIR/$PROJECT_DIR"
-    sudo chmod -R 755 "$DEPLOY_DIR/$PROJECT_DIR"
+    sudo chown -R $USER:$USER "$FULL_DEPLOY_PATH"
+    sudo chmod -R 755 "$FULL_DEPLOY_PATH"
 }
 
-setup_package() {
-    if ! command -v jq &>/dev/null; then
-        sudo apt-get install -y jq
-    fi
-}
-
-check_for_updates() {
+deploy_updates() {
     local latest_commit
     local last_commit
 
@@ -95,29 +95,28 @@ check_for_updates() {
     if [[ "$latest_commit" != "$last_commit" ]]; then
         echo "🚀 New commit detected! Deploying changes..."
 
-        cd "$DEPLOY_DIR/$PROJECT_DIR" || exit
+        cd "$FULL_DEPLOY_PATH" || exit
 
         if git config --get remote.origin.url &>/dev/null; then
             git fetch origin
             git reset --hard "origin/$BRANCH_NAME"
         else
-            echo "Cloning repository into $DEPLOY_DIR/$PROJECT_DIR..."
+            echo "Cloning repository into $FULL_DEPLOY_PATH..."
             git clone $GITHUB_URL .
         fi
 
         write_last_commit "$latest_commit"
+        echo "✅ Deployment successful."
     else
-        echo "✅ No new changes found."
+        echo "✅ No new updates found."
     fi
 }
 
-check_nginx_installed
-check_nginx
-setup_package
+install_packages
+ensure_nginx_running
 setup_environment
 setup_permission
-check_for_updates
+deploy_updates
 
-echo "Restarting Nginx to deploy changes..."
-systemctl restart nginx
-echo "✅ Deployment complete."
+echo "🔄 Restarting Nginx..."
+systemctl restart nginx && echo "✅ Deployment complete." || echo "❌ Failed to restart Nginx."
